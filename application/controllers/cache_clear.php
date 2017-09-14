@@ -1,0 +1,99 @@
+<?php
+class Cache_clear extends CS_Controller
+{
+    public function _init()
+    {
+        $this->load->library('pagination');
+        $this->load->model('cache_clear_model','cache_clear');
+    }
+   
+    public function grid($pg=1)
+    {
+        $page_num = 20;
+        $num = ($pg-1)*$page_num;
+        $config['first_url']   = base_url('cache_clear/grid').$this->pageGetParam($this->input->get());
+        $config['suffix']      = $this->pageGetParam($this->input->get());
+        $config['base_url']    = base_url('cache_clear/grid');
+        $config['total_rows']  = $this->cache_clear->total($this->input->get());
+        $config['uri_segment'] = 3;
+        $this->pagination->initialize($config);
+        $data['pg_link']   = $this->pagination->create_links();
+        $data['page_list'] = $this->cache_clear->page_list($page_num, $num, $this->input->get());
+        $data['all_rows']  = $config['total_rows'];
+        $data['pg_now']    = $pg;
+        $data['page_num']  = $page_num;
+        $this->load->view('cache_clear/grid',$data);
+    }
+    
+    public function delete($id)
+    {
+        $is_delete = $this->cache_clear->deleteById($id);
+        if ($is_delete) {
+            $this->success('cache_clear/grid', '', '删除成功！');
+        } else {
+            $this->error('cache_clear/grid', '', '删除失败！');
+        }
+    }
+    
+    public function add()
+    {
+        $this->load->view('cache_clear/add');
+    }
+    
+    public function addPost()
+    {
+        $error = $this->validate();
+        if(!empty($error)){
+            $this->error('cache_clear/add', '', $error);
+        }
+        $this->db->trans_start();
+        $resultId = $this->cache_clear->insert($this->input->post());
+        $this->db->trans_complete();
+        if ($resultId) {
+            $this->success('cache_clear/grid', '', '保存成功！');
+        } else {
+            $this->error('cache_clear/add', '', '保存失败！');
+        }
+    }
+    
+    public function clear($id)
+    {
+        $result = $this->cache_clear->findById($id);
+        if ($result->num_rows() > 0) {
+            if ($this->cache->memcached->save($result->row()->cache_id)) {
+                $is_secuss = $this->cache->memcached->delete($result->row()->cache_id);
+            } else {
+                $this->success('cache_clear/grid', '', '已经清理了。');
+            }
+        } else {
+            $is_secuss = false;
+        }
+        if ($is_secuss) {
+            $this->success('cache_clear/grid', '', '清理缓存成功！');
+        } else {
+            $this->error('cache_clear/grid', '', '清理缓存失败！');
+        }
+    }
+    
+    public function clearAll()
+    {
+        $is_secuss = $this->cache->memcached->clean();
+        if ($is_secuss) {
+            $this->success('cache_clear/grid', '', '清理所有缓存成功！');
+        } else {
+            $this->error('cache_clear/grid', '', '清理所有缓存失败！');
+        }
+    }
+    
+    public function validate()
+    {
+        $error = array();
+        if ($this->validateParam($this->input->post('cache_name'))) {
+            $error[] = 'cache名称不能为空';
+        }
+        if ($this->validateParam($this->input->post('cache_id'))) {
+            $error[] = 'cache_id不能为空';
+        }
+        return $error;
+    }
+}
