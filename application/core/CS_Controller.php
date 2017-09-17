@@ -1,5 +1,5 @@
 <?php
-class CS_Controller extends LT_Controller
+class CS_Controller extends HT_Controller
 {
     public function __construct()
     {
